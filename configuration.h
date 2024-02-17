@@ -502,6 +502,7 @@ typedef struct settings
       char placeholder;
 
       char video_driver[32];
+      char mister_ip[16]; //psakhis
       char record_driver[32];
       char camera_driver[32];
       char bluetooth_driver[32];
@@ -674,6 +675,7 @@ typedef struct settings
       bool video_vsync;
       bool video_adaptive_vsync;
       bool video_scanline_sync;
+      bool video_mister_enable; /* psakhis */
       bool video_hard_sync;
       bool video_waitable_swapchains;
       bool video_vfilter;
@@ -965,6 +967,7 @@ typedef struct settings
 
       bool crt_switch_custom_refresh_enable;
       bool crt_switch_hires_menu;
+      bool mister_lz4; //psakhis
 
       /* Netplay */
       bool netplay_show_only_connectable;

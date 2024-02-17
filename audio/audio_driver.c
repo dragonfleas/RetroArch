@@ -869,6 +869,17 @@ static void audio_driver_flush(audio_driver_state_t *audio_st,
          output_frames       *= sizeof(int16_t);  /* Unit: bytes */
       }
 
+#ifdef HAVE_MISTER /* psakhis */
+      {
+         settings_t *settings = config_get_ptr();
+         if (settings->bools.video_mister_enable)
+         {
+            memcpy(&audio_st->output_mister_samples_conv_buf[audio_st->output_mister_samples], output_data, output_frames << 1);
+            audio_st->output_mister_samples += output_frames;
+         }
+      }
+#endif
+
       audio->write(audio_st->context_audio_data,
             output_data, output_frames * 2);
    }
@@ -940,6 +951,11 @@ bool audio_driver_init_internal(void *settings_data, bool audio_cb_inited)
    audio_driver_st.chunk_block_size               = AUDIO_CHUNK_SIZE_BLOCKING;
    audio_driver_st.chunk_nonblock_size            = AUDIO_CHUNK_SIZE_NONBLOCKING;
    audio_driver_st.chunk_size                     = AUDIO_CHUNK_SIZE_BLOCKING;
+
+#ifdef HAVE_MISTER /* psakhis */
+   audio_driver_st.output_mister_samples          = 0;
+   audio_driver_st.output_mister                  = false;
+#endif
 
    if (!audio_enable)
    {
@@ -1195,6 +1211,12 @@ size_t audio_driver_sample_batch(const int16_t *data, size_t frames)
                   ? (AUDIO_CHUNK_SIZE_NONBLOCKING >> 1)
                   : frames_remaining;
 
+#ifdef HAVE_MISTER //psakhis
+      settings_t *settings           = config_get_ptr();
+      if (settings->bools.video_mister_enable && !(runloop_flags & RUNLOOP_FLAG_PAUSED) && (audio_st->flags & AUDIO_FLAG_ACTIVE))
+         audio_st->output_mister = false;
+#endif
+
       if (recording_push_audio)
       {
          struct record_audio_data ffemu_data;
@@ -1214,6 +1236,10 @@ size_t audio_driver_sample_batch(const int16_t *data, size_t frames)
       frames_remaining -= frames_to_write;
       data             += frames_to_write << 1;
    } while (frames_remaining > 0);
+
+#ifdef HAVE_MISTER //psakhis
+   audio_st->output_mister = true;
+#endif
 
    return frames;
 }
