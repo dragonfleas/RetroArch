@@ -5073,6 +5073,10 @@ void video_driver_frame(const void *data, unsigned width,
          mister_draw(video_st, data, width, height, pitch);
 #endif
 
+
+      video_info.width = width;
+      video_info.height = height;
+
       if (vid->frame(
                video_st->data, data, width, height,
                video_st->frame_count, (unsigned)pitch,
@@ -5091,6 +5095,11 @@ void video_driver_frame(const void *data, unsigned width,
    }
 
    video_st->frame_count++;
+
+#ifdef HAVE_MISTER //psakhis
+      if (config_get_ptr()->bools.video_mister_enable)
+         mister_draw(video_st, data, width, height, pitch);
+#endif
 
    /* Display the status text, with a higher priority. */
    if (  (   video_info.fps_show

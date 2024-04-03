@@ -109,7 +109,7 @@ static void crt_aspect_ratio_switch(
    video_driver_set_output_size(width, height);
    if (video_st->current_video && video_st->current_video->set_viewport)
       video_st->current_video->set_viewport(
-            video_st->data, width, height, true, true);
+            video_st->data, width, height, false, true);
 
    command_event(CMD_EVENT_VIDEO_APPLY_STATE_CHANGES, NULL);
 }
@@ -464,6 +464,13 @@ void crt_switch_res_core(
          height       = 240;
       }
       width           = native_width;
+   }
+
+   if (height <= 64)
+   {
+      native_width = 640;
+      width = 640;
+      height = 480;
    }
 
    if (height != 4 )
