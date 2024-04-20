@@ -50,7 +50,7 @@
 #endif
 
 #ifdef HAVE_MISTER //psakhis
-#include "../deps/mister/mister.h"
+#include "gfx_mister.h"
 #endif
 
 #ifdef _WIN32
@@ -5196,13 +5196,6 @@ void video_driver_frame(const void *data, unsigned width,
       video_driver_scanline_after_frame(video_st,
             video_info.refresh_rate, video_info.frame_time_target, runloop_st->core_run_time);
 }
-
-#ifdef HAVE_MISTER //psakhis
-int video_mister_sync(retro_time_t emulationTime)
-{
-	return mister_Sync(emulationTime);
-}
-#endif
 
 static void video_driver_reinit_context(settings_t *settings, int flags)
 {
