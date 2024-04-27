@@ -244,6 +244,7 @@ enum joypad_driver_enum
    JOYPAD_RWEBPAD,
    JOYPAD_MFI,
    JOYPAD_WINRAW,
+   JOYPAD_MISTER, /* psakhis */
    JOYPAD_NULL
 };
 
@@ -734,6 +735,8 @@ static const enum joypad_driver_enum JOYPAD_DEFAULT_DRIVER = JOYPAD_HID;
 static const enum joypad_driver_enum JOYPAD_DEFAULT_DRIVER = JOYPAD_QNX;
 #elif defined(EMSCRIPTEN)
 static const enum joypad_driver_enum JOYPAD_DEFAULT_DRIVER = JOYPAD_RWEBPAD;
+#elif defined(HAVE_MISTER) //psakhis
+static const enum joypad_driver_enum JOYPAD_DEFAULT_DRIVER = JOYPAD_MISTER;
 #else
 static const enum joypad_driver_enum JOYPAD_DEFAULT_DRIVER = JOYPAD_NULL;
 #endif
@@ -1314,6 +1317,8 @@ const char *config_get_default_joypad(void)
          return "mfi";
       case JOYPAD_WINRAW:
          return "winraw";
+      case JOYPAD_MISTER: /* psakhis */
+         return "mister";
       case JOYPAD_NULL:
          break;
    }
