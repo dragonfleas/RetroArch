@@ -19,12 +19,14 @@ extern "C" {
 
 
 GroovyMister* gmw;
+int gmw_inputsBinded;
 
 MODULE_API_GMW void gmw_init(const char* misterHost, uint8_t lz4Frames, uint32_t soundRate, uint8_t soundChan, uint8_t rgbMode)
 {
 	if (gmw == NULL)
 	{
 		gmw = new GroovyMister;
+		gmw_inputsBinded = 0;
 	}
 	gmw->CmdInit(misterHost, 32100, lz4Frames, soundRate, soundChan, rgbMode);
 }
@@ -36,6 +38,7 @@ MODULE_API_GMW void gmw_close(void)
 		gmw->CmdClose();
 		delete gmw;
 		gmw = NULL;
+		gmw_inputsBinded = 0;
 	}
 	else
 	{
@@ -173,8 +176,13 @@ MODULE_API_GMW void gmw_bindInputs(const char* misterHost)
 	if (gmw == NULL)
 	{
 		gmw = new GroovyMister();
+		gmw_inputsBinded = 0;
 	}
-	gmw->BindInputs(misterHost, 32101);
+	if (!gmw_inputsBinded)
+	{
+		gmw->BindInputs(misterHost, 32101);
+	}
+	gmw_inputsBinded = 1;
 }
 
 MODULE_API_GMW void gmw_pollInputs(void)
