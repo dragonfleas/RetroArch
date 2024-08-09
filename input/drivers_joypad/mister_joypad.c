@@ -254,6 +254,8 @@ input_device_driver_t mister_joypad = {
    mister_joypad_poll,
    NULL,
    NULL,
+   NULL,
+   NULL,
    mister_joypad_name,
    "mister"
 };
