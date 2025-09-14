@@ -2017,6 +2017,21 @@ static void gl3_set_viewport(gl3_t *gl,
    gl->filter_chain_vp.height = gl->vp.height;
 }
 
+void gl3_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned width, unsigned height, double x_scale, double y_scale)
+{
+      gl3_t *gl = (gl3_t*)video_st->data;
+      gl->video_width = width;
+      gl->video_height = height;
+      gl->vp.width = width;
+      gl->vp.height = height;
+      gl->pbo_readback_scaler.out_width = width * x_scale;
+      gl->pbo_readback_scaler.out_height = height * y_scale;
+      gl->pbo_readback_scaler.in_width = width;
+      gl->pbo_readback_scaler.in_height = height;
+      gl->pbo_readback_scaler.in_stride = width * sizeof(uint32_t);
+      gl->pbo_readback_scaler.out_stride = width * 3;
+}
+
 #ifdef HAVE_SLANG
 static bool gl3_init_pipelines(gl3_t *gl)
 {
@@ -4413,20 +4428,11 @@ static bool gl3_frame(void *data, const void *frame,
    }
    else if (gl->flags & GL3_FLAG_PBO_READBACK_ENABLE)
    {
-      /* If recording has stopped, tear down PBO readback */
-      if (!recording_state_get_ptr()->enable)
-      {
-         gl3_deinit_pbo_readback(gl);
-         gl->flags &= ~GL3_FLAG_PBO_READBACK_ENABLE;
-      }
-      else
-      {
 #ifdef HAVE_MENU
-         /* Don't readback if we're in menu mode. */
-         if (!(gl->flags & GL3_FLAG_MENU_TEXTURE_ENABLE))
+      /* Don't readback if we're in menu mode. */
+      if (!(gl->flags & GL3_FLAG_MENU_TEXTURE_ENABLE))
 #endif
-            gl3_pbo_async_readback(gl);
-      }
+         gl3_pbo_async_readback(gl);
    }
 
    if (gl->ctx_driver->swap_buffers)

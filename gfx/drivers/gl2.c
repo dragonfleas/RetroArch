@@ -1477,6 +1477,21 @@ static void gl2_set_viewport(gl2_t *gl,
    }
 }
 
+void gl2_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned width, unsigned height, double x_scale, double y_scale)
+{
+   gl2_t *gl = (gl2_t*)video_st->data;
+   gl->video_width = width;
+   gl->video_height = height;
+   gl->vp.width = width;
+   gl->vp.height = height;
+   gl->pbo_readback_scaler.out_width = width * x_scale;
+   gl->pbo_readback_scaler.out_height = height * y_scale;
+   gl->pbo_readback_scaler.in_width = width;
+   gl->pbo_readback_scaler.in_height = height;
+   gl->pbo_readback_scaler.in_stride = width * sizeof(uint32_t);
+   gl->pbo_readback_scaler.out_stride = width * 3;
+}
+
 static void gl2_renderchain_render(
       gl2_t *gl,
       gl2_renderchain_data_t *chain,
@@ -3851,21 +3866,11 @@ static bool gl2_frame(void *data, const void *frame,
 
    else if (gl->flags & GL2_FLAG_PBO_READBACK_ENABLE)
    {
-      /* If recording has stopped, tear down PBO readback */
-      if (!recording_state_get_ptr()->enable)
-      {
-         glDeleteBuffers(4, gl->pbo_readback);
-         scaler_ctx_gen_reset(&gl->pbo_readback_scaler);
-         gl->flags &= ~GL2_FLAG_PBO_READBACK_ENABLE;
-      }
-      else
-      {
 #ifdef HAVE_MENU
-         /* Don't readback if we're in menu mode. */
-         if (!(gl->flags & GL2_FLAG_MENU_TEXTURE_ENABLE))
+      /* Don't readback if we're in menu mode. */
+      if (!(gl->flags & GL2_FLAG_MENU_TEXTURE_ENABLE))
 #endif
-            gl2_pbo_async_readback(gl);
-      }
+         gl2_pbo_async_readback(gl);
    }
 
     if (gl->ctx_driver->swap_buffers)
