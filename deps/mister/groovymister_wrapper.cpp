@@ -11,6 +11,7 @@
 #define MODULE_API_EXPORTS_GMW
 #include <cstdio>
 #include <cstddef>
+#include <cstring>
 #include "groovymister.h"
 #include "groovymister_wrapper.h"
 #ifdef __cplusplus
