@@ -118,6 +118,14 @@ GroovyMister::GroovyMister()
 	memset(&m_tickSync, 0, sizeof(m_tickSync));
 	memset(&m_tickCongestion, 0, sizeof(m_tickCongestion));
 
+	m_widthTime    = 0;
+	m_core_version = 0;
+	m_sockFD       = 0;
+	m_sockInputsFD = 0;
+	memset(&m_bufferSend,          0, sizeof(m_bufferSend));
+	memset(&m_bufferReceive,       0, sizeof(m_bufferReceive));
+	memset(&m_bufferInputsReceive, 0, sizeof(m_bufferInputsReceive));
+
 	DWORD totalBufferCount = 0;
 	DWORD totalBufferSize = 0;
 	m_pBufferAudio = AllocateBufferSpace(BUFFER_SIZE, 1, totalBufferSize, totalBufferCount);
@@ -438,7 +446,7 @@ int GroovyMister::CmdInit(const char* misterHost, uint16_t misterPort, int lz4Fr
 	}
 #endif
 
-	LOG(0,"[MiSTer] Sending CMD_INIT...lz4 %d sound_rate %d sound_chan %d rgb_mode %d mtu %d\n", lz4Frames, soundRate, soundChan, rgbMode, mtu);
+	LOG(0,"[MiSTer] Sending CMD_INIT...lz4 %d sound_rate %d sound_chan %d rgb_mode %d mtu %d\n", lz4Frames, (int)soundRate, (int)soundChan, (int)rgbMode, (int)mtu);
 
 	m_lz4Frames = lz4Frames;
 	m_soundChan = soundChan;
@@ -607,7 +615,7 @@ void GroovyMister::CmdBlit(uint32_t frame, uint8_t field, uint16_t vCountSync, u
 				ratio_delta = (double) cSizeDelta / cSize;
 			}
 			m_lz4Frames = m_lz4Frames - 2;
-			LOG(0,"[MiSTer] LZ4 Adaptative apply LZ4HC on frame %d\n", frame);
+			LOG(0,"[MiSTer] LZ4 Adaptative apply LZ4HC on frame %d\n", (int)frame);
 		}
 	}
 
@@ -810,7 +818,7 @@ void GroovyMister::WaitSync(void)
 
 	if (((uint32_t) sleepTime + 10000 < realTime)) //sleep?
 	{
-		LOG(1,"[MiSTer] Frame %d Sleep prev=%d/final=%d/real=%d (frameTime=%d blitTime=%d emulationTime=%d) (vcount_vsync=%d/%d vcount_gpu=%d/%d)\n", m_frame, prevSleepTime, sleepTime, realTime, m_frameTime, m_streamTime, m_emulationTime, fpga.frameEcho, fpga.vCountEcho, fpga.frame, fpga.vCount);
+		LOG(1,"[MiSTer] Frame %d Sleep prev=%d/final=%d/real=%d (frameTime=%d blitTime=%d emulationTime=%d) (vcount_vsync=%d/%d vcount_gpu=%d/%d)\n", (int)m_frame, (int)prevSleepTime, (int)sleepTime, (int)realTime, (int)m_frameTime, (int)m_streamTime, (int)m_emulationTime, (int)fpga.frameEcho, (int)fpga.vCountEcho, (int)fpga.frame, (int)fpga.vCount);
 	}
 }
 
@@ -831,7 +839,7 @@ int GroovyMister::DiffTimeRaster(void)
 			LOG(2,"[MiSTer] patch %d (patched=%d) %d / %d %d \n", fpga.frameEcho, fpga.frame + 1, fpga.vCountEcho, fpga.frame, fpga.vCount);
 			fpga.frameEcho = fpga.frame + 1;
 		}*/
-		LOG(2,"[MiSTer] echo %d %d / %d %d \n", fpga.frameEcho, fpga.vCountEcho, fpga.frame, fpga.vCount);
+		LOG(2,"[MiSTer] echo %d %d / %d %d \n", (int)fpga.frameEcho, (int)fpga.vCountEcho, (int)fpga.frame, (int)fpga.vCount);
 		uint32_t vCount1 = ((fpga.frameEcho - 1) * m_vTotal + fpga.vCountEcho) >> m_interlace;
 		uint32_t vCount2 = (fpga.frame * m_vTotal + fpga.vCount) >> m_interlace;
 		int dif = (int) (vCount1 - vCount2) / 2; //dicotomic
@@ -1106,7 +1114,7 @@ void GroovyMister::setFpgaStatus(void)
 	fpga.audio         = bits.u.bit6;
 	fpga.vramQueue     = bits.u.bit7;
 
-	LOG(2,"[MiSTer] ACK %d %d / %d %d / bits(%d%d%d%d%d%d%d%d)\n", fpga.frameEcho, fpga.vCountEcho, fpga.frame, fpga.vCount, fpga.vramReady, fpga.vramEndFrame, fpga.vramSynced, fpga.vgaFrameskip, fpga.vgaVblank, fpga.vgaF1, fpga.audio, fpga.vramQueue);
+	LOG(2,"[MiSTer] ACK %d %d / %d %d / bits(%d%d%d%d%d%d%d%d)\n", (int)fpga.frameEcho, (int)fpga.vCountEcho, (int)fpga.frame, (int)fpga.vCount, (int)fpga.vramReady, (int)fpga.vramEndFrame, (int)fpga.vramSynced, (int)fpga.vgaFrameskip, (int)fpga.vgaVblank, (int)fpga.vgaF1, (int)fpga.audio, (int)fpga.vramQueue);
 }
 
 void GroovyMister::setFpgaJoystick(int len)
