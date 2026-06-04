@@ -7476,6 +7476,11 @@ int runloop_iterate(void)
    bool cheevos_enable                    = settings->bools.cheevos_enable;
 #endif
    bool audio_sync                        = settings->bools.audio_sync;
+#ifdef HAVE_MISTER
+   bool mister_enabled                    = settings->bools.video_mister_enable;
+   bool mister_connected                  = mister_enabled && mister_is_connected();
+   bool mister_fallback                   = mister_enabled && !mister_connected;
+#endif
    bool savestate_automatic_enable        = settings->uints.savestate_automatic_interval > 0;
 #ifdef HAVE_DISCORD
    discord_state_t *discord_st            = discord_state_get_ptr();
@@ -7795,10 +7800,16 @@ end:
                   && (!(settings->bools.video_vsync)
                       || !(runloop_st->flags & RUNLOOP_FLAG_FOCUSED)))
 #endif
+#ifdef HAVE_MISTER
+              /* Fallback pacer: with MiSTer enabled every stock sync is off and
+               * WaitSync is the sole pacer, but it no-ops when disconnected.
+               * Drive the limiter ourselves so a dropped link can't free-run. */
+              || mister_fallback
+#endif
               || (runloop_st->flags & RUNLOOP_FLAG_PAUSED)))
       {
 #ifdef HAVE_MISTER
-         if (settings->bools.video_mister_enable)
+         if (mister_enabled)
             runloop_st->frame_limit_last_time += mister_diff_time_raster() / 10;
 #endif
          const retro_time_t end_frame_time  = cpu_features_get_time_usec();
@@ -7839,8 +7850,9 @@ end:
       video_frame_delay(video_st, settings);
 
 #ifdef HAVE_MISTER
-   /* WaitSync must be the sole frame pacer: only when neither vrr nor audio sync drives timing. */
-   if (settings->bools.video_mister_enable && !vrr_runloop_enable && !audio_sync)
+   /* WaitSync paces only when connected and no other sync drives timing; if the
+    * link is down the fallback limiter above has already paced this frame. */
+   if (mister_connected && !vrr_runloop_enable && !audio_sync)
       mister_sync();
 #endif
 
