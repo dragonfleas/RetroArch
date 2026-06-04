@@ -7850,9 +7850,10 @@ end:
       video_frame_delay(video_st, settings);
 
 #ifdef HAVE_MISTER
-   /* WaitSync paces only when connected and no other sync drives timing; if the
-    * link is down the fallback limiter above has already paced this frame. */
-   if (mister_connected && !vrr_runloop_enable && !audio_sync)
+   /* WaitSync paces normal cores (audio_sync on, vrr off); Flycast et al. use
+    * vrr instead (audio_sync off). When the link is down the fallback limiter
+    * above has already paced this frame. */
+   if (mister_connected && !vrr_runloop_enable && audio_sync)
       mister_sync();
 #endif
 
