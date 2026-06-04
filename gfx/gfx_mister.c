@@ -682,6 +682,16 @@ static void mister_switchres(sr_mode *srm)
    if (srm == 0)
       return;
 
+   /* Guard against the degenerate zero-initialised mode armed at init.
+    * Activating a 0x0 mode sets x_scale/y_scale to 0, which produces a
+    * 0-dimension scaler and crashes the software frame path. Wait for the
+    * real switchres that follows. */
+   if (srm->width == 0 || srm->height == 0)
+   {
+      mode_switch_pending = 0;
+      return;
+   }
+
    RARCH_LOG("[MiSTer] Video_SetSwitchres - (result %dx%d@%f) - x=%.4f y=%.4f stretched(%d)\n", srm->width, srm->height,srm->vfreq, srm->x_scale, srm->y_scale, srm->is_stretched);
    RARCH_LOG("[MiSTer] Sending CMD_SWITCHRES...\n");
 
