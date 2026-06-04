@@ -450,19 +450,28 @@ int GroovyMister::CmdInit(const char* misterHost, uint16_t misterPort, int lz4Fr
 	m_bufferSend[3] = soundChan;
 	m_bufferSend[4] = rgbMode;
 
-	Send(&m_bufferSend[0], 5);
+	/* Retry CMD_INIT with a generous timeout: tolerate jittery links where the
+	 * ACK round-trip occasionally spikes past the original 60ms window. */
+	uint32_t ackTime = 0;
+	for (int attempt = 0; attempt < 5 && !ackTime; attempt++)
+	{
+		Send(&m_bufferSend[0], 5);
 
 #ifdef _WIN32
-	if (USE_RIO)
-	{
-		m_rio.RIOReceive(m_requestQueue, &m_receiveRioBuffer, 1, 0, &m_receiveRioBuffer);
-	}
+		if (USE_RIO)
+		{
+			m_rio.RIOReceive(m_requestQueue, &m_receiveRioBuffer, 1, 0, &m_receiveRioBuffer);
+		}
 #endif
 
-	uint32_t ackTime = getACK(60);
+		ackTime = getACK(500);
+		if (!ackTime)
+			LOG(0,"[MiSTer] CMD_INIT ACK attempt %d/5 timed out (500 ms)\n", attempt + 1);
+	}
+
 	if (!ackTime)
 	{
-		LOG(0,"[MiSTer] ACK failed with %d ms\n", 60);
+		LOG(0,"[MiSTer] ACK failed after %d retries\n", 5);
 		CmdClose();
 		return -1;
 	}
@@ -794,6 +803,11 @@ void GroovyMister::WaitSync(void)
 	{
 		int diffRaster = DiffTimeRaster();
 		sleepTime = (diffRaster < 0 && abs(diffRaster) > sleepTime) ? 0 : sleepTime + diffRaster;
+		/* Clamp: the raster correction may pull the wait earlier (catch-up) but
+		 * must never inflate it past the per-frame budget, otherwise a steady
+		 * multi-frame FPGA pipeline makes WaitSync wait ~2x frameTime -> half speed. */
+		if (sleepTime > prevSleepTime)
+			sleepTime = prevSleepTime;
 		setTimeEnd();
 		realTime = DiffTime();
 

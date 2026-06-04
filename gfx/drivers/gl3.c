@@ -3058,7 +3058,7 @@ static void *gl3_init(const video_info_t *video,
 
    if ((video_gpu_record
       && recording_state_get_ptr()->enable)
-      || settings->bools.video_mister_enable)
+      || (settings->bools.video_mister_enable && video_driver_is_hw_context()))
    {
       gl->flags |=  GL3_FLAG_PBO_READBACK_ENABLE;
       if (gl3_init_pbo_readback(gl))
@@ -4428,8 +4428,13 @@ static bool gl3_frame(void *data, const void *frame,
    }
    else if (gl->flags & GL3_FLAG_PBO_READBACK_ENABLE)
    {
-      /* If recording has stopped, tear down PBO readback */
-      if (!recording_state_get_ptr()->enable)
+      /* Keep PBO readback alive while recording OR while MiSTer streaming is
+       * active. Without the MiSTer check the readback was torn down on the
+       * first frame (recording off), so read_viewport() never had valid data
+       * and no frames were sent to the MiSTer for hw-rendered cores. */
+      if (     !recording_state_get_ptr()->enable
+            && !(config_get_ptr()->bools.video_mister_enable
+                  && video_driver_is_hw_context()))
       {
          gl3_deinit_pbo_readback(gl);
          gl->flags &= ~GL3_FLAG_PBO_READBACK_ENABLE;
