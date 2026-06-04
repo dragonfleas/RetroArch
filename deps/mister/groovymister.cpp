@@ -605,12 +605,12 @@ void GroovyMister::CmdBlit(uint32_t frame, uint8_t field, uint16_t vCountSync, u
 				case(2):
 				case(1): cSizeDelta = LZ4_compress_default((char *)&m_pBufferBlitDelta[0], m_pBufferLZ4[1], m_RGBSize, m_RGBSize);
 						 break;
-				case(4): 
+				case(4):
 				case(3): cSizeDelta = LZ4_compress_HC((char *)&m_pBufferBlitDelta[0], m_pBufferLZ4[1], m_RGBSize, m_RGBSize, LZ4HC_CLEVEL_DEFAULT);
 						 break;
 			}
 			ratio_delta = (double) cSizeDelta / cSize;
-			//LOG(0,"frame %d raw %d, match %d, ratio %f csize %d cSizeDelta %d ratio_delta %f\n",frame, m_RGBSize, matchDeltaBytes, ratio_match, cSize, cSizeDelta, ratio_delta);	
+			//LOG(0,"frame %d raw %d, match %d, ratio %f csize %d cSizeDelta %d ratio_delta %f\n",frame, m_RGBSize, matchDeltaBytes, ratio_match, cSize, cSizeDelta, ratio_delta);
 		}
 
 		if ((m_lz4Frames == 5 || m_lz4Frames == 6) && cSizeDelta > LZ4_ADAPTATIVE_CSIZE)
@@ -621,7 +621,7 @@ void GroovyMister::CmdBlit(uint32_t frame, uint8_t field, uint16_t vCountSync, u
 			}
 			else
 			{
-				cSizeDelta = LZ4_compress_HC((char *)&m_pBufferBlitDelta[0], m_pBufferLZ4[1], m_RGBSize, m_RGBSize, LZ4HC_CLEVEL_DEFAULT); 
+				cSizeDelta = LZ4_compress_HC((char *)&m_pBufferBlitDelta[0], m_pBufferLZ4[1], m_RGBSize, m_RGBSize, LZ4HC_CLEVEL_DEFAULT);
 				ratio_delta = (double) cSizeDelta / cSize;
 			}
 			m_lz4Frames = m_lz4Frames - 2;
@@ -812,10 +812,6 @@ void GroovyMister::WaitSync(void)
 	{
 		int diffRaster = DiffTimeRaster();
 		sleepTime = (diffRaster < 0 && abs(diffRaster) > sleepTime) ? 0 : sleepTime + diffRaster;
-		/* Never wait past the frame budget; the FPGA's multi-frame pipeline would
-		 * otherwise inflate the wait to ~2x frameTime (half speed). */
-		if (sleepTime > prevSleepTime)
-			sleepTime = prevSleepTime;
 		setTimeEnd();
 		realTime = DiffTime();
 
@@ -849,9 +845,21 @@ int GroovyMister::DiffTimeRaster(void)
 			fpga.frameEcho = fpga.frame + 1;
 		}*/
 		LOG(2,"[MiSTer] echo %d %d / %d %d \n", (int)fpga.frameEcho, (int)fpga.vCountEcho, (int)fpga.frame, (int)fpga.vCount);
-		uint32_t vCount1 = ((fpga.frameEcho - 1) * m_vTotal + fpga.vCountEcho) >> m_interlace;
-		uint32_t vCount2 = (fpga.frame * m_vTotal + fpga.vCount) >> m_interlace;
-		int dif = (int) (vCount1 - vCount2) / 2; //dicotomic
+		/* opposite to the commented out "patch if emulator freezes" section
+		 * above. this lets the FPGA buffer more than 1 frame when it needs to.
+		 * we only look at the raster line within the frame (vCountEcho vs
+		 * vCount) and wrap it to a single frame, so however many whole frames
+		 * are buffered just cancels out. the old code assumed a 1 frame buffer,
+		 * so anything deeper made it sleep ~an extra frame every time which
+		 * ~halved the core speed
+		 */
+		int vt = (int) m_vTotal;
+		int phase = (int) fpga.vCountEcho - (int) fpga.vCount;
+		if (phase > (vt >> 1))
+			phase -= vt;
+		else if (phase < -(vt >> 1))
+			phase += vt;
+		int dif = (int) (phase >> m_interlace) / 2; //dicotomic
 
 		diffTime = (int) (m_widthTime * dif);
 	}
