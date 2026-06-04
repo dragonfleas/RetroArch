@@ -7839,9 +7839,7 @@ end:
       video_frame_delay(video_st, settings);
 
 #ifdef HAVE_MISTER
-   /* MiSTer WaitSync paces the run loop to the FPGA's refresh. It must be the
-    * sole pacer, so engage it when neither vrr nor audio sync is driving timing
-    * (the original condition required audio_sync, which double-paced -> slow). */
+   /* WaitSync must be the sole frame pacer: only when neither vrr nor audio sync drives timing. */
    if (settings->bools.video_mister_enable && !vrr_runloop_enable && !audio_sync)
       mister_sync();
 #endif

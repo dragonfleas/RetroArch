@@ -682,10 +682,7 @@ static void mister_switchres(sr_mode *srm)
    if (srm == 0)
       return;
 
-   /* Guard against the degenerate zero-initialised mode armed at init.
-    * Activating a 0x0 mode sets x_scale/y_scale to 0, which produces a
-    * 0-dimension scaler and crashes the software frame path. Wait for the
-    * real switchres that follows. */
+   /* A 0x0 mode (zero-init, not a real switchres) makes a 0-dimension scaler that crashes. */
    if (srm->width == 0 || srm->height == 0)
    {
       mode_switch_pending = 0;

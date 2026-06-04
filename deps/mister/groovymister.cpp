@@ -802,9 +802,8 @@ void GroovyMister::WaitSync(void)
 	{
 		int diffRaster = DiffTimeRaster();
 		sleepTime = (diffRaster < 0 && abs(diffRaster) > sleepTime) ? 0 : sleepTime + diffRaster;
-		/* Clamp: the raster correction may pull the wait earlier (catch-up) but
-		 * must never inflate it past the per-frame budget, otherwise a steady
-		 * multi-frame FPGA pipeline makes WaitSync wait ~2x frameTime -> half speed. */
+		/* Never wait past the frame budget; the FPGA's multi-frame pipeline would
+		 * otherwise inflate the wait to ~2x frameTime (half speed). */
 		if (sleepTime > prevSleepTime)
 			sleepTime = prevSleepTime;
 		setTimeEnd();
