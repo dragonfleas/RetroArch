@@ -5068,8 +5068,19 @@ void video_driver_frame(const void *data, unsigned width,
    {
       video_info.current_subframe = 0;
 
-      video_info.width = width;
-      video_info.height = height;
+#ifdef HAVE_MISTER
+      /* MiSTer: render hardware-rendered frames at their native (core) size so
+       * read_viewport captures a pixel-exact native frame for the FPGA. Software
+       * cores and the menu keep the full window size (so they display correctly
+       * on the host); they feed MiSTer through their own scaler, not readback. */
+      if (     config_get_ptr()->bools.video_mister_enable
+            && data == RETRO_HW_FRAME_BUFFER_VALID
+            && video_driver_cached_frame_is_hw_render())
+      {
+         video_info.width  = width;
+         video_info.height = height;
+      }
+#endif
 
       if (vid->frame(
                video_st->data, data, width, height,

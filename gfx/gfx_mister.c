@@ -44,10 +44,14 @@ union
 extern void gl2_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned width, unsigned height, double x_scale, double y_scale);
 extern void gl3_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned width, unsigned height, double x_scale, double y_scale);
 extern void vulkan_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned width, unsigned height, double x_scale, double y_scale);
+extern void gl2_restore_viewport_and_scaler(video_driver_state_t *video_st);
+extern void gl3_restore_viewport_and_scaler(video_driver_state_t *video_st);
+extern void vulkan_restore_viewport_and_scaler(video_driver_state_t *video_st);
 
 static void mister_init(const char* mister_host, uint8_t compression, uint32_t sound_rate, uint8_t sound_channels, uint8_t pix_fmt);
 static void mister_switchres(sr_mode *srm);
 static void mister_resize_viewport(video_driver_state_t *video_st, unsigned width, unsigned height);
+static void mister_restore_viewport(video_driver_state_t *video_st);
 
 static mister_video_t mister_video;
 static sr_mode mister_mode;
@@ -153,7 +157,13 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
 
    if (vp_resize_pending)
    {
-      mister_resize_viewport(video_st, width, height);
+      /* Only the hw-readback path needs the host viewport shrunk to the
+       * modeline; software cores and the menu must keep the full-window
+       * viewport so they render on the host as well as on MiSTer. */
+      if (is_hw_rendered)
+         mister_resize_viewport(video_st, width, height);
+      else
+         mister_restore_viewport(video_st);
       vp_resize_pending = false;
    }
 
@@ -732,5 +742,24 @@ static void mister_resize_viewport(video_driver_state_t *video_st, unsigned widt
 #ifdef HAVE_VULKAN
    else if (string_is_equal(video_driver_get_ident(), "vulkan"))
       vulkan_resize_viewport_and_scaler(video_st, width, height, x_scale, y_scale);
+#endif
+}
+
+
+/* Host viewport restore for the non-readback path. The readback (hw cores)
+ * shrinks the host viewport to the modeline so read_viewport yields a native
+ * frame; software cores and the menu feed MiSTer from their own scaler, so the
+ * host viewport must stay at the real window size to draw there too. */
+static void mister_restore_viewport(video_driver_state_t *video_st)
+{
+   if (string_is_equal(video_driver_get_ident(), "gl"))
+      gl2_restore_viewport_and_scaler(video_st);
+
+   else if (string_is_equal(video_driver_get_ident(), "glcore"))
+      gl3_restore_viewport_and_scaler(video_st);
+
+#ifdef HAVE_VULKAN
+   else if (string_is_equal(video_driver_get_ident(), "vulkan"))
+      vulkan_restore_viewport_and_scaler(video_st);
 #endif
 }

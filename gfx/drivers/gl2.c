@@ -1492,6 +1492,21 @@ void gl2_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned wid
    gl->pbo_readback_scaler.out_stride = width * 3;
 }
 
+/* Undo gl2_resize_viewport_and_scaler: restore the host viewport to the real
+ * window size so software cores and the menu draw full-window on the host while
+ * still streaming to MiSTer. */
+void gl2_restore_viewport_and_scaler(video_driver_state_t *video_st)
+{
+   gl2_t *gl  = (gl2_t*)video_st->data;
+   unsigned w = gl->video_width;
+   unsigned h = gl->video_height;
+   if (gl->ctx_driver->get_video_size)
+      gl->ctx_driver->get_video_size(gl->ctx_data, &w, &h);
+   gl->video_width  = w;
+   gl->video_height = h;
+   gl->flags       |= GL2_FLAG_SHOULD_RESIZE;
+}
+
 static void gl2_renderchain_render(
       gl2_t *gl,
       gl2_renderchain_data_t *chain,

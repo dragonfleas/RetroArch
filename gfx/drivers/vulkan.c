@@ -5823,6 +5823,21 @@ void vulkan_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned 
    vk->readback.scaler_rgb.scaler_type = SCALER_TYPE_POINT;
 }
 
+/* Undo vulkan_resize_viewport_and_scaler: restore the host viewport to the real
+ * window size so software cores and the menu draw full-window on the host while
+ * still streaming to MiSTer. */
+void vulkan_restore_viewport_and_scaler(video_driver_state_t *video_st)
+{
+   vk_t *vk   = (vk_t*)video_st->data;
+   unsigned w = vk->video_width;
+   unsigned h = vk->video_height;
+   if (vk->ctx_driver->get_video_size)
+      vk->ctx_driver->get_video_size(vk->ctx_data, &w, &h);
+   vk->video_width  = w;
+   vk->video_height = h;
+   vk->flags       |= VK_FLAG_SHOULD_RESIZE;
+}
+
 static void vulkan_readback(vk_t *vk, struct vk_image *readback_image)
 {
    VkBufferImageCopy region;
