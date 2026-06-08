@@ -325,10 +325,10 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
 
    uint32_t match_delta = 0;
    // Copy RGB buffer as BGR24
-   for (uint32_t j = 0; j < y_max - 1; j++)
+   for (uint32_t j = 0; j < y_max; j++)
    {
       if (is_hw_rendered)
-         c = (mister_video.width * (mister_video.height / r_step - y_start - field - j) + x_start) * pix_size;
+         c = (mister_video.width * (mister_video.height / r_step - y_start - field - j - 1) + x_start) * pix_size;
 
       else if (menu_on || !(rotation & 1))
          c = ((j + y_start) * mister_video.width + x_start) * pix_size;
@@ -339,7 +339,7 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
       else if (rotation == ORIENTATION_FLIPPED_ROTATED)
          c = (mister_video.width * (y_start + 1) - j - x_start - 1) * pix_size;
 
-      for (uint32_t i = 0; i < x_max - 1; i += s_step)
+      for (uint32_t i = 0; i < x_max; i += s_step)
       {
          if (scanlines && (j % 2))
          {

@@ -5,9 +5,19 @@
 #include <gfx/video_driver.h>
 #include <retroarch.h>
 
-bool video_driver_cached_frame_is_hw_render(void) { return false; }
+/* hw-render is injected so specs can exercise the readback blit path (:331).
+ * Default false (software path). */
+static bool g_hw_render = false;
+bool video_driver_cached_frame_is_hw_render(void) { return g_hw_render; }
+void fake_set_hw_render(bool on)                  { g_hw_render = on; }
+
 const char *video_driver_get_ident(void)          { return "test"; }
-unsigned int retroarch_get_rotation(void)          { return 0; }
+
+/* Rotation is injected here (the only place gfx_mister.c reads it) so specs can
+ * exercise the rotated blit branches. Default 0 (ORIENTATION_NORMAL). */
+static unsigned int g_rotation = 0;
+unsigned int retroarch_get_rotation(void)          { return g_rotation; }
+void fake_set_rotation(unsigned int r)             { g_rotation = r; }
 
 void gl2_resize_viewport_and_scaler(video_driver_state_t *video_st, unsigned width,
                                     unsigned height, double x_scale, double y_scale)

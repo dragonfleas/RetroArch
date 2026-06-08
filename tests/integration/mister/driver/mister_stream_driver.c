@@ -15,6 +15,10 @@ extern void mister_set_mode(sr_mode *srm);
 extern void mister_draw(video_driver_state_t *video_st, const void *data,
                         unsigned width, unsigned height, size_t pitch);
 
+/* Rotation / hw-render seam setters (defined in seams/fake_video.c). */
+extern void fake_set_rotation(unsigned int r);
+extern void fake_set_hw_render(bool on);
+
 #define MISTER_PORT 32100
 
 struct mdrv {
@@ -36,6 +40,7 @@ mdrv_t *mdrv_start(void)
    s->bools.mister_force_rgb565  = false;
    s->bools.mister_interlaced_fb = false;
    s->bools.video_frame_delay_auto = false;
+   fake_set_rotation(0);   /* default ORIENTATION_NORMAL until a spec sets it */
 
    d->comp = composer_create();
    d->transport = transport_start_on_port(d->comp, MISTER_PORT);
@@ -72,6 +77,12 @@ void mdrv_set_interlaced(mdrv_t *d, int on)
 {
    (void)d;
    config_get_ptr()->bools.mister_interlaced_fb = on ? true : false;
+}
+
+void mdrv_set_rotation(mdrv_t *d, unsigned rotation)
+{
+   (void)d;
+   fake_set_rotation(rotation);
 }
 
 void mdrv_arrange_mode_scaled(mdrv_t *d, int w, int h, double xs, double ys)
@@ -120,6 +131,46 @@ void mdrv_draw_xrgb(mdrv_t *d, const uint32_t *frame, int w, int h)
    memset(&vst, 0, sizeof(vst));
    vst.pix_fmt = RETRO_PIXEL_FORMAT_XRGB8888;
    mister_draw(&vst, frame, (unsigned)w, (unsigned)h, (size_t)w * 4);
+}
+
+/* read_viewport test double: yields the frame staged by mdrv_draw_hw as BGR24,
+ * the format the real GL/Vulkan readback produces. */
+static uint8_t *g_hw_bgr = NULL;
+static size_t   g_hw_bytes = 0;
+static bool fake_read_viewport(void *data, uint8_t *buffer, bool is_idle)
+{
+   (void)data; (void)is_idle;
+   if (!g_hw_bgr) return false;
+   memcpy(buffer, g_hw_bgr, g_hw_bytes);
+   return true;
+}
+
+void mdrv_draw_hw(mdrv_t *d, const uint32_t *frame, int w, int h)
+{
+   (void)d;
+   const size_t n = (size_t)w * h;
+   g_hw_bgr   = realloc(g_hw_bgr, n * 3);
+   g_hw_bytes = n * 3;
+   for (size_t i = 0; i < n; i++)
+   {
+      uint32_t c = frame[i];
+      g_hw_bgr[i*3+0] = c & 0xff;          /* B */
+      g_hw_bgr[i*3+1] = (c >> 8) & 0xff;   /* G */
+      g_hw_bgr[i*3+2] = (c >> 16) & 0xff;  /* R */
+   }
+
+   static video_driver_t vd;          /* zero-init; only read_viewport is read */
+   memset(&vd, 0, sizeof(vd));
+   vd.read_viewport = fake_read_viewport;
+
+   video_driver_state_t vst;
+   memset(&vst, 0, sizeof(vst));
+   vst.pix_fmt       = RETRO_PIXEL_FORMAT_XRGB8888;
+   vst.current_video = &vd;
+
+   fake_set_hw_render(true);
+   mister_draw(&vst, RETRO_HW_FRAME_BUFFER_VALID, (unsigned)w, (unsigned)h, (size_t)w * 3);
+   fake_set_hw_render(false);
 }
 
 sim_composer_t *mdrv_composer(mdrv_t *d) { return d->comp; }

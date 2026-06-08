@@ -32,7 +32,10 @@ TEST_SRCS := spec_smoke.c \
              spec_transport.c \
              spec_link.c \
              spec_frame_fidelity.c \
-             spec_cfg_permutations.c
+             spec_cfg_permutations.c \
+             spec_edge_fidelity.c \
+             spec_rotation_fidelity.c \
+             spec_hwrender_fidelity.c
 
 # --- Production / simulator / seam objects under test ---
 SUPPORT_SRCS := metrics/ssim.c \

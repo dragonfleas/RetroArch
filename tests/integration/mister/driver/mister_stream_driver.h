@@ -26,6 +26,9 @@ void mdrv_set_scanlines(mdrv_t *d, int on);
 /* Toggle interlaced framebuffer mode. */
 void mdrv_set_interlaced(mdrv_t *d, int on);
 
+/* Set the display rotation gfx_mister.c reads (ORIENTATION_* 0..3). Default 0. */
+void mdrv_set_rotation(mdrv_t *d, unsigned rotation);
+
 /* Arrange a video mode (drives mister_set_mode); width/height in pixels. */
 void mdrv_arrange_mode(mdrv_t *d, int w, int h);
 
@@ -39,6 +42,12 @@ void mdrv_arrange_mode_interlaced(mdrv_t *d, int w, int h);
 
 /* Stream one XRGB8888 source frame through the real mister_draw pipeline. */
 void mdrv_draw_xrgb(mdrv_t *d, const uint32_t *frame, int w, int h);
+
+/* Stream one XRGB8888 frame through the hardware-readback path (:331): marks
+ * the frame hw-rendered and supplies it via a read_viewport test double (which
+ * yields BGR24). The readback blit reads bottom-up, so the output is a vertical
+ * flip of the source. */
+void mdrv_draw_hw(mdrv_t *d, const uint32_t *frame, int w, int h);
 
 /* Access the simulator's composer (what the FPGA received). */
 sim_composer_t *mdrv_composer(mdrv_t *d);

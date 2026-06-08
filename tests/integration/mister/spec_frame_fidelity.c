@@ -67,12 +67,12 @@ static void rgb565_to_bgr24(const uint8_t *p565, uint8_t *bgr, int n)
 /* H1: an RGB888 frame at matched resolution must stream perceptually lossless
  * (full-frame SSIM >= 0.98).
  *
- * KNOWN-FAILING (red) regression test. It currently scores ~0.928 because of a
- * real off-by-one in gfx_mister.c: the blit walk loops `j < y_max - 1` and
- * `i < x_max - 1` (gfx_mister.c:327,342), dropping the last row and column of
- * every streamed frame. The interior is pixel-perfect (interior SSIM == 1.0,
- * see spec_frame_fidelity::interior_is_lossless). This test stays red on
- * purpose to flag the defect until the bound is fixed to y_max / x_max. */
+ * Regression guard for the blit edge off-by-one: the walk once looped
+ * `j < y_max - 1` / `i < x_max - 1` (dropping the last row and column of every
+ * frame, scoring ~0.928); fixed to `j < y_max` / `i < x_max` (gfx_mister.c:328,
+ * 342). The companion interior_is_lossless stays green to prove the rest of the
+ * pipeline is exact; this full-frame test guards the edge. See
+ * docs/mister-frame-drop-finding.md. */
 /* Note on size: the default loopback UDP socket buffer (net.core.rmem_max,
  * ~208 KB here) bounds how much can be in flight without root. A 256x192 RGB888
  * frame (144 KB, ~100 datagrams) streams without drops; larger frames would
@@ -107,10 +107,9 @@ Test(frame_fidelity, rgb888_matched_resolution_is_lossless)
    mdrv_stop(d);
 }
 
-/* Companion to H1: the pipeline is provably lossless everywhere EXCEPT the
- * dropped edge row/column — the frame interior is pixel-perfect (SSIM == 1.0).
- * This isolates the off-by-one and proves render→UDP→reassembly→conversion is
- * otherwise exact. Stays green. */
+/* Companion to H1: the frame interior is pixel-perfect (SSIM == 1.0), proving
+ * render→UDP→reassembly→conversion is exact independent of the edge. Originally
+ * isolated the edge off-by-one (now fixed); kept as the interior guard. */
 Test(frame_fidelity, interior_is_lossless)
 {
    enum { W = 256, H = 192 };
