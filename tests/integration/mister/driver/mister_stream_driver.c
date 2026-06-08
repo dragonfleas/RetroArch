@@ -62,6 +62,18 @@ void mdrv_set_rgb565(mdrv_t *d, int on)
    config_get_ptr()->bools.mister_force_rgb565 = on ? true : false;
 }
 
+void mdrv_set_scanlines(mdrv_t *d, int on)
+{
+   (void)d;
+   config_get_ptr()->bools.mister_scanlines = on ? true : false;
+}
+
+void mdrv_set_interlaced(mdrv_t *d, int on)
+{
+   (void)d;
+   config_get_ptr()->bools.mister_interlaced_fb = on ? true : false;
+}
+
 void mdrv_arrange_mode_scaled(mdrv_t *d, int w, int h, double xs, double ys)
 {
    (void)d;
@@ -82,6 +94,23 @@ void mdrv_arrange_mode_scaled(mdrv_t *d, int w, int h, double xs, double ys)
 void mdrv_arrange_mode(mdrv_t *d, int w, int h)
 {
    mdrv_arrange_mode_scaled(d, w, h, 1.0, 1.0);
+}
+
+void mdrv_arrange_mode_interlaced(mdrv_t *d, int w, int h)
+{
+   (void)d;
+   sr_mode m;
+   memset(&m, 0, sizeof(m));
+   m.width   = w;
+   m.height  = h;
+   m.refresh = 60;
+   m.vfreq   = 60.0;
+   m.pclock  = 25175000;
+   m.hbegin  = w + 16;  m.hend = w + 112;  m.htotal = w + 160;
+   m.vbegin  = h + 10;  m.vend = h + 12;   m.vtotal = h + 45;
+   m.interlace = 1;
+   m.x_scale = 1.0;     m.y_scale = 1.0;   m.v_scale = 1.0;
+   mister_set_mode(&m);
 }
 
 void mdrv_draw_xrgb(mdrv_t *d, const uint32_t *frame, int w, int h)

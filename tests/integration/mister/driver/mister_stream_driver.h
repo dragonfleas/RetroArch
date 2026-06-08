@@ -20,12 +20,22 @@ void mdrv_set_lz4(mdrv_t *d, int lz4);
 /* Force RGB565 output before connecting (0/1). Default 0 (RGB888). */
 void mdrv_set_rgb565(mdrv_t *d, int on);
 
+/* Toggle scanlines (darkens alternate output rows when y_scale >= 2). */
+void mdrv_set_scanlines(mdrv_t *d, int on);
+
+/* Toggle interlaced framebuffer mode. */
+void mdrv_set_interlaced(mdrv_t *d, int on);
+
 /* Arrange a video mode (drives mister_set_mode); width/height in pixels. */
 void mdrv_arrange_mode(mdrv_t *d, int w, int h);
 
 /* Arrange a mode with explicit scale factors (e.g. 2.0 to upscale a smaller
  * source to a larger modeline). */
 void mdrv_arrange_mode_scaled(mdrv_t *d, int w, int h, double xs, double ys);
+
+/* Arrange an interlaced mode (modeline interlace flag set); pairs with
+ * mdrv_set_interlaced to stream fields. */
+void mdrv_arrange_mode_interlaced(mdrv_t *d, int w, int h);
 
 /* Stream one XRGB8888 source frame through the real mister_draw pipeline. */
 void mdrv_draw_xrgb(mdrv_t *d, const uint32_t *frame, int w, int h);
