@@ -43,6 +43,13 @@ void mdrv_arrange_mode_interlaced(mdrv_t *d, int w, int h);
 /* Stream one XRGB8888 source frame through the real mister_draw pipeline. */
 void mdrv_draw_xrgb(mdrv_t *d, const uint32_t *frame, int w, int h);
 
+/* Stream one RGB565 source frame (pix_fmt=RGB565). Precede with mdrv_draw_xrgb
+ * to latch rgb_mode=RGB888 at init and hit the non-565-mode sub-branch. */
+void mdrv_draw_rgb565(mdrv_t *d, const uint16_t *frame, int w, int h);
+
+/* Stream one RGBA4444 menu-overlay frame (forces the menu blit arm). */
+void mdrv_draw_menu(mdrv_t *d, const uint16_t *frame, int w, int h);
+
 /* Stream one XRGB8888 frame through the hardware-readback path (:331): marks
  * the frame hw-rendered and supplies it via a read_viewport test double (which
  * yields BGR24). The readback blit reads bottom-up, so the output is a vertical

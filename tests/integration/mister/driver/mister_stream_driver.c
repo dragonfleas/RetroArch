@@ -19,6 +19,10 @@ extern void mister_draw(video_driver_state_t *video_st, const void *data,
 extern void fake_set_rotation(unsigned int r);
 extern void fake_set_hw_render(bool on);
 
+/* Menu seam (defined in seams/fake_menu.c) + menu buffer setter (gfx_mister.c). */
+extern void fake_set_menu_alive(bool on);
+extern void mister_set_menu_buffer(char *frame, unsigned width, unsigned height);
+
 #define MISTER_PORT 32100
 
 struct mdrv {
@@ -131,6 +135,28 @@ void mdrv_draw_xrgb(mdrv_t *d, const uint32_t *frame, int w, int h)
    memset(&vst, 0, sizeof(vst));
    vst.pix_fmt = RETRO_PIXEL_FORMAT_XRGB8888;
    mister_draw(&vst, frame, (unsigned)w, (unsigned)h, (size_t)w * 4);
+}
+
+void mdrv_draw_rgb565(mdrv_t *d, const uint16_t *frame, int w, int h)
+{
+   (void)d;
+   video_driver_state_t vst;
+   memset(&vst, 0, sizeof(vst));
+   vst.pix_fmt = RETRO_PIXEL_FORMAT_RGB565;
+   mister_draw(&vst, frame, (unsigned)w, (unsigned)h, (size_t)w * 2);
+}
+
+void mdrv_draw_menu(mdrv_t *d, const uint16_t *frame, int w, int h)
+{
+   (void)d;
+   mister_set_menu_buffer((char *)(uintptr_t)frame, (unsigned)w, (unsigned)h);
+   fake_set_menu_alive(true);
+
+   video_driver_state_t vst;
+   memset(&vst, 0, sizeof(vst));
+   /* menu path overrides pix_fmt/data/dims internally; these just pass the guards */
+   vst.pix_fmt = RETRO_PIXEL_FORMAT_XRGB8888;
+   mister_draw(&vst, frame, (unsigned)w, (unsigned)h, (size_t)w * 2);
 }
 
 /* read_viewport test double: yields the frame staged by mdrv_draw_hw as BGR24,
