@@ -8,6 +8,14 @@ ifneq ($(C90_BUILD),)
    C89_BUILD=1
 endif
 
+# The standalone MiSTer integration test has its own self-contained build and
+# must not require ./configure (config.mk). Short-circuit before the include.
+ifneq ($(filter mister-integration-test,$(MAKECMDGOALS)),)
+mister-integration-test:
+	$(MAKE) -C tests/integration/mister run
+.PHONY: mister-integration-test
+else
+
 include config.mk
 
 # Put your favorite compile flags in this file, if you want different defaults than upstream.
@@ -475,7 +483,9 @@ bundle: $(TARGET) $(METALLIB)
 
 endif
 
-.PHONY: all install uninstall clean
+.PHONY: all install uninstall clean mister-integration-test
 
 print-%:
 	@echo '$*=$($*)'
+
+endif # mister-integration-test short-circuit

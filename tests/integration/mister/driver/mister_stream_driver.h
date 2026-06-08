@@ -1,0 +1,36 @@
+#ifndef MISTER_STREAM_DRIVER_H
+#define MISTER_STREAM_DRIVER_H
+
+#include <stdint.h>
+#include "sim/state_machine.h"
+
+/* DRIVER layer: hides mister_set_mode / mister_draw, the simulator lifecycle,
+ * and settings wiring behind a small domain vocabulary the specs speak. */
+
+typedef struct mdrv mdrv_t;
+
+/* Start the FPGA simulator on port 32100 and arrange the mister_* settings
+ * (loopback IP, raw frames, 1500 MTU). */
+mdrv_t *mdrv_start(void);
+void    mdrv_stop(mdrv_t *d);
+
+/* Select compression before connecting (0 = raw, 1 = LZ4). Default raw. */
+void mdrv_set_lz4(mdrv_t *d, int lz4);
+
+/* Force RGB565 output before connecting (0/1). Default 0 (RGB888). */
+void mdrv_set_rgb565(mdrv_t *d, int on);
+
+/* Arrange a video mode (drives mister_set_mode); width/height in pixels. */
+void mdrv_arrange_mode(mdrv_t *d, int w, int h);
+
+/* Arrange a mode with explicit scale factors (e.g. 2.0 to upscale a smaller
+ * source to a larger modeline). */
+void mdrv_arrange_mode_scaled(mdrv_t *d, int w, int h, double xs, double ys);
+
+/* Stream one XRGB8888 source frame through the real mister_draw pipeline. */
+void mdrv_draw_xrgb(mdrv_t *d, const uint32_t *frame, int w, int h);
+
+/* Access the simulator's composer (what the FPGA received). */
+sim_composer_t *mdrv_composer(mdrv_t *d);
+
+#endif /* MISTER_STREAM_DRIVER_H */
