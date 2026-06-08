@@ -85,6 +85,186 @@ void mister_set_menu_buffer(char *frame, unsigned width, unsigned height)
    menu_height = height;
 }
 
+/* Branchless delta: d = v - fb is 0 exactly when v == fb, so no match branch. */
+static inline uint32_t blit_row_argb_delta(uint8_t *fb, uint8_t *delta, const uint32_t *src,
+                                           uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   uint32_t md = 0;
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      uint32_t p = src[i];
+      uint8_t db = (uint8_t)((uint8_t)(p >>  0) - fb[c + 0]);
+      uint8_t dg = (uint8_t)((uint8_t)(p >>  8) - fb[c + 1]);
+      uint8_t dr = (uint8_t)((uint8_t)(p >> 16) - fb[c + 2]);
+      delta[c + 0] = db; md += (db == 0);
+      delta[c + 1] = dg; md += (dg == 0);
+      delta[c + 2] = dr; md += (dr == 0);
+      fb[c + 0] = p; fb[c + 1] = p >> 8; fb[c + 2] = p >> 16;
+      c += c_step;
+   }
+   return md;
+}
+
+static inline uint32_t blit_row_argb_nodelta(uint8_t *fb, const uint32_t *src,
+                                             uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      uint32_t p = src[i];
+      fb[c + 0] = p; fb[c + 1] = p >> 8; fb[c + 2] = p >> 16;
+      c += c_step;
+   }
+   return 0;
+}
+
+static inline uint32_t blit_row_bgr24_delta(uint8_t *fb, uint8_t *delta, const uint8_t *src,
+                                            uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   uint32_t md = 0;
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      const uint8_t *p = &src[i * 3];
+      uint8_t db = (uint8_t)(p[0] - fb[c + 0]);
+      uint8_t dg = (uint8_t)(p[1] - fb[c + 1]);
+      uint8_t dr = (uint8_t)(p[2] - fb[c + 2]);
+      delta[c + 0] = db; md += (db == 0);
+      delta[c + 1] = dg; md += (dg == 0);
+      delta[c + 2] = dr; md += (dr == 0);
+      fb[c + 0] = p[0]; fb[c + 1] = p[1]; fb[c + 2] = p[2];
+      c += c_step;
+   }
+   return md;
+}
+
+static inline uint32_t blit_row_bgr24_nodelta(uint8_t *fb, const uint8_t *src,
+                                              uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      const uint8_t *p = &src[i * 3];
+      fb[c + 0] = p[0]; fb[c + 1] = p[1]; fb[c + 2] = p[2];
+      c += c_step;
+   }
+   return 0;
+}
+
+static inline uint32_t blit_row_565exp_delta(uint8_t *fb, uint8_t *delta, const uint16_t *src,
+                                             uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   uint32_t md = 0;
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      uint16_t pixel = src[i];
+      uint8_t r5 = (pixel >> 11) & 0x1f, g6 = (pixel >> 5) & 0x3f, b5 = pixel & 0x1f;
+      uint8_t b = (uint8_t)((b5 << 3) | (b5 >> 2));
+      uint8_t g = (uint8_t)((g6 << 2) | (g6 >> 4));
+      uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
+      uint8_t db = (uint8_t)(b - fb[c + 0]);
+      uint8_t dg = (uint8_t)(g - fb[c + 1]);
+      uint8_t dr = (uint8_t)(r - fb[c + 2]);
+      delta[c + 0] = db; md += (db == 0);
+      delta[c + 1] = dg; md += (dg == 0);
+      delta[c + 2] = dr; md += (dr == 0);
+      fb[c + 0] = b; fb[c + 1] = g; fb[c + 2] = r;
+      c += c_step;
+   }
+   return md;
+}
+
+static inline uint32_t blit_row_565exp_nodelta(uint8_t *fb, const uint16_t *src,
+                                               uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      uint16_t pixel = src[i];
+      uint8_t r5 = (pixel >> 11) & 0x1f, g6 = (pixel >> 5) & 0x3f, b5 = pixel & 0x1f;
+      fb[c + 0] = (uint8_t)((b5 << 3) | (b5 >> 2));
+      fb[c + 1] = (uint8_t)((g6 << 2) | (g6 >> 4));
+      fb[c + 2] = (uint8_t)((r5 << 3) | (r5 >> 2));
+      c += c_step;
+   }
+   return 0;
+}
+
+static inline uint32_t blit_row_565raw_delta(uint8_t *fb, uint8_t *delta, const uint16_t *src,
+                                             uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   uint32_t md = 0;
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      uint16_t pixel = src[i];
+      uint8_t d0 = (uint8_t)((uint8_t)(pixel & 0xff) - fb[c + 0]);
+      uint8_t d1 = (uint8_t)((uint8_t)(pixel >> 8)   - fb[c + 1]);
+      delta[c + 0] = d0; md += (d0 == 0);
+      delta[c + 1] = d1; md += (d1 == 0);
+      *(uint16_t *)&fb[c] = pixel;
+      c += c_step;
+   }
+   return md;
+}
+
+static inline uint32_t blit_row_565raw_nodelta(uint8_t *fb, const uint16_t *src,
+                                               uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      *(uint16_t *)&fb[c] = src[i];
+      c += c_step;
+   }
+   return 0;
+}
+
+/* Preserves two upstream quirks: unmasked compares (pixel>>4/pixel>>0 vs truncated
+ * bytes) and the compute-then-zero delta (delta is always zeroed regardless). */
+static inline uint32_t blit_row_rgba4444(uint8_t *fb, uint8_t *delta, const uint16_t *src,
+                                         uint32_t x_max, int s_step, uint32_t c, int c_step,
+                                         bool delta_frames)
+{
+   uint32_t md = 0;
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      uint16_t pixel = src[i];
+      if (delta_frames)
+      {
+         if ((pixel >> 8) == fb[c + 0]) { md++; delta[c + 0] = 0; }
+         else delta[c + 0] = (uint8_t)(pixel >> 8) - (uint8_t)fb[c + 0];
+         if ((pixel >> 4) == fb[c + 1]) { md++; delta[c + 1] = 0; }
+         else delta[c + 1] = (uint8_t)(pixel >> 4) - (uint8_t)fb[c + 1];
+         if ((pixel >> 0) == fb[c + 2]) { md++; delta[c + 2] = 0; }
+         else delta[c + 2] = (uint8_t)(pixel >> 0) - (uint8_t)fb[c + 2];
+      }
+      delta[c + 0] = 0; delta[c + 1] = 0; delta[c + 2] = 0;
+      fb[c + 0] = (pixel >> 8); fb[c + 1] = (pixel >> 4); fb[c + 2] = (pixel >> 0);
+      c += c_step;
+   }
+   return md;
+}
+
+static inline uint32_t blit_row_blank_delta(uint8_t *fb, uint8_t *delta,
+                                            uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   uint32_t md = 0;
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      md += 3;
+      delta[c + 0] = 0; delta[c + 1] = 0; delta[c + 2] = 0;
+      fb[c + 0] = 0; fb[c + 1] = 0; fb[c + 2] = 0;
+      c += c_step;
+   }
+   return md;
+}
+
+static inline uint32_t blit_row_blank_nodelta(uint8_t *fb,
+                                              uint32_t x_max, int s_step, uint32_t c, int c_step)
+{
+   for (uint32_t i = 0; i < x_max; i += s_step)
+   {
+      fb[c + 0] = 0; fb[c + 1] = 0; fb[c + 2] = 0;
+      c += c_step;
+   }
+   return 0;
+}
+
 void mister_draw(video_driver_state_t *video_st, const void *data, unsigned width, unsigned height, size_t pitch)
 {
    settings_t *settings  = config_get_ptr();
@@ -324,7 +504,9 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
    }
 
    uint32_t match_delta = 0;
-   // Copy RGB buffer as BGR24
+   bool delta_frames = mister_video.delta_frames;
+
+   /* Format/scanline/delta dispatch hoisted to per-row; inner loops stay tight. */
    for (uint32_t j = 0; j < y_max; j++)
    {
       if (is_hw_rendered)
@@ -339,206 +521,39 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
       else if (rotation == ORIENTATION_FLIPPED_ROTATED)
          c = (mister_video.width * (y_start + 1) - j - x_start - 1) * pix_size;
 
-      for (uint32_t i = 0; i < x_max; i += s_step)
-      {
-         if (scanlines && (j % 2))
-         {
-            if (mister_video.delta_frames)
-            {
-               match_delta += 3;
-               mister_buffer_delta[c + 0] = 0; //b
-               mister_buffer_delta[c + 1] = 0; //g
-               mister_buffer_delta[c + 2] = 0; //r
-            }
-            fb[c + 0] = 0; //b
-            fb[c + 1] = 0; //g
-            fb[c + 2] = 0; //r
-         }
-         else if (format == SCALER_FMT_RGBA4444)
-         {
-            uint16_t pixel = u.u16[i];
-            if (mister_video.delta_frames)
-            {
-               if ((pixel >>  8) == fb[c + 0])
-               {
-                 match_delta++;
-                 mister_buffer_delta[c + 0] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 0] = (uint8_t) (pixel >>  8) - (uint8_t) fb[c + 0];
-               }
-               if ((pixel >>  4) == fb[c + 1])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 1] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 1] = (uint8_t) (pixel >>  4) - (uint8_t) fb[c + 1];
-               }
-               if ((pixel >>  0) == fb[c + 2])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 2] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 2] = (uint8_t) (pixel >>  0) - (uint8_t) fb[c + 2];
-               }
-            }
-            mister_buffer_delta[c + 0] = 0; //b
-            mister_buffer_delta[c + 1] = 0; //g
-            mister_buffer_delta[c + 2] = 0; //r
-            fb[c + 0] = (pixel >>  8); //b
-            fb[c + 1] = (pixel >>  4); //g
-            fb[c + 2] = (pixel >>  0); //r
-         }
-         else if (format == SCALER_FMT_BGR24)
-         {
-            uint32_t pixel = i * pix_size;
-            if (mister_video.delta_frames)
-            {
-               if (u.u8[pixel + 0] == fb[c + 0])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 0] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 0] = (uint8_t) u.u8[pixel + 0] - (uint8_t) fb[c + 0];
-               }
-               if (u.u8[pixel + 1] == fb[c + 1])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 1] = 0;
-                  }
-               else
-               {
-                  mister_buffer_delta[c + 1] = (uint8_t) u.u8[pixel + 1] - (uint8_t) fb[c + 1];
-               }
-               if (u.u8[pixel + 2] == fb[c + 2])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 2] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 2] = (uint8_t) u.u8[pixel + 2] - (uint8_t) fb[c + 2];
-               }
-            }
-            fb[c + 0] = u.u8[pixel + 0]; //b
-            fb[c + 1] = u.u8[pixel + 1]; //g
-            fb[c + 2] = u.u8[pixel + 2]; //r
-         }
-         else if (format == SCALER_FMT_RGB565)
-         {
-            uint16_t pixel = u.u16[i];
-            if (mister_video.rgb_mode == RGB565)
-            {
-               uint16_t *target = (uint16_t *)&fb[c];
-               if (mister_video.delta_frames)
-               {
-                  if (((pixel >>  0) & 0xff) == fb[c + 0])
-                  {
-                     match_delta++;
-                     mister_buffer_delta[c + 0] = 0;
-                  }
-                  else
-                  {
-                     mister_buffer_delta[c + 0] = (uint8_t) ((pixel >>  0) & 0xff) - (uint8_t) fb[c + 0];
-                  }
-                  if (((pixel >>  8) & 0xff) == fb[c + 1])
-                  {
-                     match_delta++;
-                     mister_buffer_delta[c + 1] = 0;
-                  }
-                  else
-                  {
-                     mister_buffer_delta[c + 1] = (uint8_t) ((pixel >>  8) & 0xff) - (uint8_t) fb[c + 1];
-                  }
-               }
-               *target = pixel;
-            }
-            else
-            {
-               uint8_t r  = (pixel >> 11) & 0x1f;
-               uint8_t g  = (pixel >>  5) & 0x3f;
-               uint8_t b  = (pixel >>  0) & 0x1f;
-               if (mister_video.delta_frames)
-               {
-                  if (((b << 3) | (b >> 2)) == fb[c + 0])
-                  {
-                     match_delta++;
-                     mister_buffer_delta[c + 0] = 0;
-                  }
-                  else
-                  {
-                     mister_buffer_delta[c + 0] = (uint8_t) ((b << 3) | (b >> 2)) - (uint8_t) fb[c + 0];
-                  }
-                  if (((g << 2) | (g >> 4)) == fb[c + 1])
-                  {
-                     match_delta++;
-                     mister_buffer_delta[c + 1] = 0;
-                  }
-                  else
-                  {
-                     mister_buffer_delta[c + 1] = (uint8_t) ((g << 2) | (g >> 4)) - (uint8_t) fb[c + 1];
-                  }
-                  if (((r << 3) | (r >> 2)) == fb[c + 2])
-                  {
-                     match_delta++;
-                     mister_buffer_delta[c + 2] = 0;
-                  }
-                  else
-                  {
-                     mister_buffer_delta[c + 2] = (uint8_t) ((r << 3) | (r >> 2)) - (uint8_t) fb[c + 2];
-                  }
-               }
-               fb[c + 0] = (b << 3) | (b >> 2); //b
-               fb[c + 1] = (g << 2) | (g >> 4); //g
-               fb[c + 2] = (r << 3) | (r >> 2); //r
-            }
-         }
-         else if (format == SCALER_FMT_ARGB8888)
-         {
-            uint32_t pixel = u.u32[i];
-            if (mister_video.delta_frames)
-            {
-               if (((pixel >>  0) & 0xff) == fb[c + 0])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 0] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 0] = (uint8_t) ((pixel >>  0) & 0xff) - (uint8_t) fb[c + 0];
-               }
-               if (((pixel >>  8) & 0xff) == fb[c + 1])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 1] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 1] = (uint8_t) ((pixel >>  8) & 0xff) - (uint8_t) fb[c + 1];
-               }
-               if (((pixel >> 16) & 0xff) == fb[c + 2])
-               {
-                  match_delta++;
-                  mister_buffer_delta[c + 2] = 0;
-               }
-               else
-               {
-                  mister_buffer_delta[c + 2] = (uint8_t) ((pixel >> 16) & 0xff) - (uint8_t) fb[c + 2];
-               }
-            }
-            fb[c + 0] = (pixel >>  0) & 0xff; //b
-            fb[c + 1] = (pixel >>  8) & 0xff; //g
-            fb[c + 2] = (pixel >> 16) & 0xff; //r
-         }
+      if (scanlines && (j % 2))
+         match_delta += delta_frames
+            ? blit_row_blank_delta(fb, mister_buffer_delta, x_max, s_step, c, c_step)
+            : blit_row_blank_nodelta(fb, x_max, s_step, c, c_step);
 
-         c += c_step;
+      else switch (format)
+      {
+         case SCALER_FMT_ARGB8888:
+            match_delta += delta_frames
+               ? blit_row_argb_delta(fb, mister_buffer_delta, u.u32, x_max, s_step, c, c_step)
+               : blit_row_argb_nodelta(fb, u.u32, x_max, s_step, c, c_step);
+            break;
+
+         case SCALER_FMT_BGR24:
+            match_delta += delta_frames
+               ? blit_row_bgr24_delta(fb, mister_buffer_delta, u.u8, x_max, s_step, c, c_step)
+               : blit_row_bgr24_nodelta(fb, u.u8, x_max, s_step, c, c_step);
+            break;
+
+         case SCALER_FMT_RGB565:
+            if (mister_video.rgb_mode == RGB565)
+               match_delta += delta_frames
+                  ? blit_row_565raw_delta(fb, mister_buffer_delta, u.u16, x_max, s_step, c, c_step)
+                  : blit_row_565raw_nodelta(fb, u.u16, x_max, s_step, c, c_step);
+            else
+               match_delta += delta_frames
+                  ? blit_row_565exp_delta(fb, mister_buffer_delta, u.u16, x_max, s_step, c, c_step)
+                  : blit_row_565exp_nodelta(fb, u.u16, x_max, s_step, c, c_step);
+            break;
+
+         case SCALER_FMT_RGBA4444:
+            match_delta += blit_row_rgba4444(fb, mister_buffer_delta, u.u16, x_max, s_step, c, c_step, delta_frames);
+            break;
       }
 
       u.u8 += pitch * r_step;
