@@ -1,0 +1,80 @@
+name: Release Builds
+
+# Builds the platforms we ship (Linux x64, Windows x64) and attaches the
+# binaries to the GitHub Release. Fires when a release is created or a v* tag is pushed;
+# workflow_dispatch lets you do a dry run (artifacts land on the run, not a
+# release). NOTE: for the release/tag triggers to fire, this file must exist
+# at the tagged commit (and on the default branch for the `release` event).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  windows-x64:
+    name: Windows x64 (MXE)
+    runs-on: ubuntu-latest
+    container:
+      image: reallibretroretroarch/libretro-build-mxe-win64-cross:gcc10
+      options: --user root
+    steps:
+      - uses: taiki-e/checkout-action@v1
+
+      - name: Compile RA
+        run: |
+          export MOC=/usr/lib/mxe/usr/x86_64-w64-mingw32.shared/qt5/bin/moc
+          ./configure --host=x86_64-w64-mingw32.shared
+          make clean
+          make -j$(getconf _NPROCESSORS_ONLN)
+          export PATH=/usr/lib/mxe/usr/bin:$PATH
+          x86_64-w64-mingw32.shared-strip --strip-unneeded retroarch.exe
+          cp retroarch.exe RetroArch-Win64.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RetroArch-Win64
+          path: RetroArch-Win64.exe
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: RetroArch-Win64.exe
+
+  linux-x64:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential libxkbcommon-dev libx11-xcb-dev \
+            zlib1g-dev libfreetype6-dev libegl1-mesa-dev libgles2-mesa-dev libgbm-dev \
+            libavcodec-dev libsdl2-dev libxml2-dev yasm
+
+      - uses: actions/checkout@v4
+
+      - name: Compile RA
+        run: |
+          ./configure --disable-qt
+          make clean
+          make -j$(getconf _NPROCESSORS_ONLN)
+          cp retroarch RetroArch-Linux-x86_64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RetroArch-Linux-x86_64
+          path: RetroArch-Linux-x86_64
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: RetroArch-Linux-x86_64
