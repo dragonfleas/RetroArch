@@ -167,6 +167,41 @@ Test(cfg_scaled, oversized_scale_does_not_overflow_buffer)
    mdrv_stop(d);
 }
 
+Test(menu_lifecycle, close_drops_stale_menu_buffer)
+{
+   enum { W = 320, H = 240 };
+   const uint32_t content = 0x00112233;
+   const uint8_t exp[3] = { content & 0xff, (content >> 8) & 0xff, (content >> 16) & 0xff };
+   mdrv_t *d = mdrv_start();
+   mdrv_set_lz4(d, 1);
+   mdrv_arrange_mode(d, W, H);
+
+   uint16_t *menu = malloc((size_t)W * H * 2);
+   for (int i = 0; i < W * H; i++) menu[i] = 0xFFFF;
+   mdrv_draw_menu(d, menu, W, H);
+
+   sim_composer_t *c = mdrv_composer(d);
+   if (!wait_for_frame(c)) { free(menu); mdrv_stop(d); cr_skip("frame did not arrive (rmem)"); }
+
+   mdrv_close(d);
+
+   uint32_t *src = malloc((size_t)W * H * 4);
+   make_source_frame(PATTERN_SOLID, W, H, SRC_FMT_XRGB8888, content, (uint8_t *)src);
+
+   int ok = 0;
+   for (int i = 0; i < 60 && !ok; i++)
+   {
+      mdrv_draw_xrgb(d, src, W, H);
+      usleep(10 * 1000);
+      if (composer_have_frame(c) && memcmp(composer_frame(c), exp, 3) == 0)
+         ok = 1;
+   }
+   cr_assert(ok, "content frame never reached MiSTer after close — stale menu buffer reused");
+
+   free(menu); free(src);
+   mdrv_stop(d);
+}
+
 /* J4: interlaced_fb streams one field per blit (half height). The received
  * field must faithfully reproduce alternate source lines. Parity (even/odd
  * first line) is an implementation detail, so we accept whichever the pipeline

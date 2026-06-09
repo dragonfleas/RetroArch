@@ -14,6 +14,9 @@ typedef struct mdrv mdrv_t;
 mdrv_t *mdrv_start(void);
 void    mdrv_stop(mdrv_t *d);
 
+/* Close the MiSTer connection, as on content/core unload. */
+void    mdrv_close(mdrv_t *d);
+
 /* Select compression before connecting (0 = raw, 1 = LZ4). Default raw. */
 void mdrv_set_lz4(mdrv_t *d, int lz4);
 

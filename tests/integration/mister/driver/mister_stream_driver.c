@@ -14,6 +14,7 @@
 extern void mister_set_mode(sr_mode *srm);
 extern void mister_draw(video_driver_state_t *video_st, const void *data,
                         unsigned width, unsigned height, size_t pitch);
+extern void mister_close(void);
 
 /* Rotation / hw-render seam setters (defined in seams/fake_video.c). */
 extern void fake_set_rotation(unsigned int r);
@@ -57,6 +58,12 @@ void mdrv_stop(mdrv_t *d)
    transport_stop(d->transport);
    composer_destroy(d->comp);
    free(d);
+}
+
+void mdrv_close(mdrv_t *d)
+{
+   (void)d;
+   mister_close();
 }
 
 void mdrv_set_lz4(mdrv_t *d, int lz4)

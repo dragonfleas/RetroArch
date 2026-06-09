@@ -673,6 +673,10 @@ void mister_close(void)
    mister_video.is_connected = 0;
    modeline_active = 0;
 
+   menu_buffer = 0;
+   menu_width = 0;
+   menu_height = 0;
+
    free(convert_buffer);
    free(scaled_buffer);
    free(hardware_buffer);
