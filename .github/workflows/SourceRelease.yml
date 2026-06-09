@@ -1,13 +1,14 @@
 name: CI Generate Source Only Tarball
 
-# Trigger whenever a release and/or is created
+# Fires when a release is published; workflow_dispatch allows manual dry runs.
 on:
   release:
     types:
-      - created
-  push:
-    tags:
-      - "v*.*"
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
