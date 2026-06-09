@@ -510,7 +510,7 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
    for (uint32_t j = 0; j < y_max; j++)
    {
       if (is_hw_rendered)
-         c = (mister_video.width * (mister_video.height / r_step - y_start - field - j - 1) + x_start) * pix_size;
+         c = (mister_video.width * (mister_video.height / r_step - y_start - j - 1) + x_start) * pix_size;
 
       else if (menu_on || !(rotation & 1))
          c = ((j + y_start) * mister_video.width + x_start) * pix_size;

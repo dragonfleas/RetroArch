@@ -85,3 +85,33 @@ Test(hwrender_fidelity, readback_interior_is_faithful)
    free(src); free(sb); free(vf);
    mdrv_stop(d);
 }
+
+Test(hwrender_fidelity, full_height_interlaced_readback_survives_field)
+{
+   enum { W = 200, H = 160, FH = H / 2 };
+   const int n = W * H;
+   const uint32_t color = 0x00123456;
+   mdrv_t *d = mdrv_start();
+   mdrv_set_lz4(d, 1);
+   mdrv_set_interlaced(d, 1);
+   mdrv_arrange_mode_interlaced(d, W, H);
+
+   uint32_t *src = malloc((size_t)n * 4);
+   make_source_frame(PATTERN_SOLID, W, H, SRC_FMT_XRGB8888, color, (uint8_t *)src);
+   mdrv_draw_hw(d, src, W, H);
+
+   sim_composer_t *c = mdrv_composer(d);
+   if (!wait_for_frame(c)) { free(src); mdrv_stop(d); cr_skip("frame did not arrive (rmem)"); }
+   cr_assert_eq(composer_rgbsize(c), (uint32_t)(W * FH * 3), "interlaced blit is one half-height field");
+
+   uint8_t exp[3] = { color & 0xff, (color >> 8) & 0xff, (color >> 16) & 0xff };
+   const uint8_t *got = composer_frame(c);
+   int bad_row = -1;
+   for (int y = 0; y < FH && bad_row < 0; y++)
+      for (int x = 0; x < W; x++)
+         if (memcmp(got + ((size_t)y * W + x) * 3, exp, 3) != 0) { bad_row = y; break; }
+   cr_assert_eq(bad_row, -1, "interlaced hw field=1 dropped/corrupted field row %d", bad_row);
+
+   free(src);
+   mdrv_stop(d);
+}
