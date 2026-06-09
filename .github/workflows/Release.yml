@@ -21,21 +21,25 @@ jobs:
   windows-x64:
     name: Windows x64 (MXE)
     runs-on: ubuntu-latest
-    container:
-      image: reallibretroretroarch/libretro-build-mxe-win64-cross:gcc10
-      options: --user root
     steps:
-      - uses: taiki-e/checkout-action@v1
+      - uses: actions/checkout@v4
 
+      # Build inside the MXE container, but run the JS-based actions (upload,
+      # release) on the host. The MXE image's glibc is too old for the Node 20
+      # those actions require.
       - name: Compile RA
         run: |
-          export MOC=/usr/lib/mxe/usr/x86_64-w64-mingw32.shared/qt5/bin/moc
-          ./configure --host=x86_64-w64-mingw32.shared
-          make clean
-          make -j$(getconf _NPROCESSORS_ONLN)
-          export PATH=/usr/lib/mxe/usr/bin:$PATH
-          x86_64-w64-mingw32.shared-strip --strip-unneeded retroarch.exe
-          cp retroarch.exe RetroArch-Win64.exe
+          docker run --rm -v "$PWD":/ra -w /ra \
+            reallibretroretroarch/libretro-build-mxe-win64-cross:gcc10 \
+            sh -c '
+              export MOC=/usr/lib/mxe/usr/x86_64-w64-mingw32.shared/qt5/bin/moc
+              ./configure --host=x86_64-w64-mingw32.shared
+              make clean
+              make -j$(getconf _NPROCESSORS_ONLN)
+              export PATH=/usr/lib/mxe/usr/bin:$PATH
+              x86_64-w64-mingw32.shared-strip --strip-unneeded retroarch.exe
+              cp retroarch.exe RetroArch-Win64.exe
+            '
 
       - uses: actions/upload-artifact@v4
         with:
@@ -43,7 +47,7 @@ jobs:
           path: RetroArch-Win64.exe
 
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: RetroArch-Win64.exe
@@ -74,7 +78,7 @@ jobs:
           path: RetroArch-Linux-x86_64
 
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: RetroArch-Linux-x86_64
