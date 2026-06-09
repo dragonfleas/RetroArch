@@ -387,6 +387,10 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
    {
       uint32_t scaler_width  = round(width * x_scale);
       uint32_t scaler_height = round(height * y_scale);
+
+      if (scaler_width  > MAX_BUFFER_WIDTH)  scaler_width  = MAX_BUFFER_WIDTH;
+      if (scaler_height > MAX_BUFFER_HEIGHT) scaler_height = MAX_BUFFER_HEIGHT;
+
       uint32_t scaler_pitch  = scaler_width * sizeof(uint32_t);
 
       if (  width  != (uint32_t)scaler->in_width

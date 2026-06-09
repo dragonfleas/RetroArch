@@ -51,6 +51,7 @@ SUPPORT_SRCS := metrics/ssim.c \
                 seams/fake_video.c \
                 seams/fake_verbosity.c \
                 seams/spy_gmw_blit.c \
+                seams/spy_scaler.c \
                 driver/mister_stream_driver.c
 
 OBJDIR    := obj
@@ -122,9 +123,9 @@ $(OBJDIR)/ra/groovymister_wrapper.o: $(RA)/deps/mister/groovymister_wrapper.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CFLAGS) -I$(RA)/deps -I$(RA)/deps/mister -c -o $@ $<
 
-# --wrap=gmw_blit routes gmw_blit through seams/spy_gmw_blit.c (records match_delta).
+# --wrap=gmw_blit -> seams/spy_gmw_blit.c; --wrap=scaler_ctx_scale -> seams/spy_scaler.c.
 $(BIN): $(ALL_OBJS) $(VENDOR_OBJS) $(REAL_OBJS)
-	$(CC) -o $@ $(ALL_OBJS) $(VENDOR_OBJS) $(REAL_OBJS) $(CRIT_LIBS) -lm -pthread -lstdc++ -Wl,--wrap=gmw_blit
+	$(CC) -o $@ $(ALL_OBJS) $(VENDOR_OBJS) $(REAL_OBJS) $(CRIT_LIBS) -lm -pthread -lstdc++ -Wl,--wrap=gmw_blit -Wl,--wrap=scaler_ctx_scale
 
 # -j1: tests share the hardcoded MiSTer UDP port 32100, so they must run
 # serially (parallel workers would cross-talk on the socket).

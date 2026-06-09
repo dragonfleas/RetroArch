@@ -15,6 +15,7 @@
 #include "driver/mister_stream_driver.h"
 #include "metrics/ssim.h"
 #include "metrics/compare.h"
+#include "seams/spy_scaler.h"
 
 static int wait_for_frame(sim_composer_t *c)
 {
@@ -142,6 +143,27 @@ Test(cfg_scanlines, alternate_rows_blanked_as_intended)
    cr_assert(s >= 0.98, "scanlines must match intended blanking, interior SSIM=%f", s);
 
    free(src); free(src_bgr); free(ref);
+   mdrv_stop(d);
+}
+
+Test(cfg_scaled, oversized_scale_does_not_overflow_buffer)
+{
+   enum { SW = 320, SH = 224 };
+   mdrv_t *d = mdrv_start();
+   mdrv_set_lz4(d, 1);
+   mdrv_arrange_mode_scaled(d, 672, 504, 2.625, 2.625);
+
+   uint32_t *src = malloc((size_t)SW * SH * 4);
+   make_source_frame(PATTERN_GRADIENT, SW, SH, SRC_FMT_XRGB8888, 0, (uint8_t *)src);
+   mdrv_draw_xrgb(d, src, SW, SH);
+
+   sim_composer_t *c = mdrv_composer(d);
+   if (!wait_for_frame(c)) { free(src); mdrv_stop(d); cr_skip("frame did not arrive (rmem)"); }
+
+   cr_assert_leq(spy_scaler_last_out_width(),  720, "scaler out_width exceeds the frame buffer");
+   cr_assert_leq(spy_scaler_last_out_height(), 576, "scaler out_height exceeds the frame buffer");
+
+   free(src);
    mdrv_stop(d);
 }
 
