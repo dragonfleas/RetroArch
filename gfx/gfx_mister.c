@@ -387,6 +387,10 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
    {
       uint32_t scaler_width  = round(width * x_scale);
       uint32_t scaler_height = round(height * y_scale);
+
+      if (scaler_width  > MAX_BUFFER_WIDTH)  scaler_width  = MAX_BUFFER_WIDTH;
+      if (scaler_height > MAX_BUFFER_HEIGHT) scaler_height = MAX_BUFFER_HEIGHT;
+
       uint32_t scaler_pitch  = scaler_width * sizeof(uint32_t);
 
       if (  width  != (uint32_t)scaler->in_width
@@ -510,7 +514,7 @@ void mister_draw(video_driver_state_t *video_st, const void *data, unsigned widt
    for (uint32_t j = 0; j < y_max; j++)
    {
       if (is_hw_rendered)
-         c = (mister_video.width * (mister_video.height / r_step - y_start - field - j - 1) + x_start) * pix_size;
+         c = (mister_video.width * (mister_video.height / r_step - y_start - j - 1) + x_start) * pix_size;
 
       else if (menu_on || !(rotation & 1))
          c = ((j + y_start) * mister_video.width + x_start) * pix_size;
@@ -668,6 +672,10 @@ void mister_close(void)
 
    mister_video.is_connected = 0;
    modeline_active = 0;
+
+   menu_buffer = 0;
+   menu_width = 0;
+   menu_height = 0;
 
    free(convert_buffer);
    free(scaled_buffer);
